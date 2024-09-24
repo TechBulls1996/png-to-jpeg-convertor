@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Conversion with Progress</title>
+    <!-- Materialize CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 1000px;
+            width: 100%;
+        }
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 30px;
+            cursor: pointer;
+            background-color: #f9f9f9;
+            transition: background-color 0.3s;
+        }
+        .upload-area:hover {
+            background-color: #e9ecef;
+        }
+        #fileInput {
+            display: none;
+        }
+        .mb-5 {
+           margin-bottom: 50px;
+        }
+        #uploadTable {
+            margin-top: 20px;
+        }
+        .progress-cell {
+            width: 30%;
+        }
+        .progress {
+            margin: 0;
+            height: 20px;
+        }
+        .preview-image {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: contain;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 4px;
+            background-color: #f8f8f8;
+        }
+        .download-link {
+            color: #26a69a;
+            text-decoration: none;
+            font-size: 10px;
+            padding: 5px;
+            border: 2px solid;
+            border-radius: 100px;
+            font-size: 13px;
+        }
+        .download-link:hover {
+            color: #0056b3;
+        }
+        .download-icon {
+            width: 16px;
+            height: 16px;
+            margin: 0px 10px;
+            vertical-align: middle;
+        }
+        .error-row {
+            border: 2px solid red;
+        }
+        .color-input-container {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+        }
+        .input-group input[type="text"] {
+            margin-right: 10px;
+        }
+        .input-group input[type="color"] {
+            width: 50px;
+            height: 30px;
+            border: none;
+            padding: 0;
+        }
+        .label {
+            font-weight: bold;
+        }
+        .legend {
+            font-size: 12px;
+            color: #555;
+        }
+        .submit-button {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h4 class="mb-5">File Conversion</h4>
+
+        <div class="color-input-container">
+            <label for="background_color" class="label">Background Color (RGB)</label>
+            <div class="input-group">
+                <input type="text" id="background_color" value="245,245,245">
+                <input type="color" id="colorPicker" value="#f4f4f4">
+            </div>
+            <div class="legend">Select a background color for the converted files.</div>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <p>Drag & drop files here or click to select</p>
+            <input type="file" id="fileInput" multiple accept=".png">
+        </div>
+
+        <table id="uploadTable" class="striped" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Preview</th>
+                    <th>File Name</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Download</th>
+                </tr>
+            </thead>
+            <tbody id="uploadTableBody">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadTable = document.getElementById('uploadTable');
+        const uploadTableBody = document.getElementById('uploadTableBody');
+        const backgroundColorInput = document.getElementById('background_color');
+        const colorPicker = document.getElementById('colorPicker');
+
+        colorPicker.addEventListener('input', (e) => {
+            const rgb = hexToRgb(e.target.value);
+            backgroundColorInput.value = rgb;
+        });
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#e9ecef';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.backgroundColor = '#f9f9f9';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.backgroundColor = '#f9f9f9';
+            handleFileUpload(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => handleFileUpload(e.target.files));
+
+        function handleFileUpload(files) {
+            if (files.length > 0) {
+                uploadTable.style.display = 'table';
+                uploadFiles(files);
+            }
+        }
+
+        function uploadFiles(files) {
+            const backgroundColor = backgroundColorInput.value;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const row = uploadTableBody.insertRow();
+                const previewCell = row.insertCell(0);
+                const nameCell = row.insertCell(1);
+                const statusCell = row.insertCell(2);
+                const progressCell = row.insertCell(3);
+                const downloadCell = row.insertCell(4);
+                
+                const previewImg = document.createElement('img');
+                previewImg.classList.add('preview-image');
+                previewImg.src = URL.createObjectURL(file);
+                previewCell.appendChild(previewImg);
+
+                nameCell.textContent = file.name;
+                statusCell.textContent = 'Uploading...';
+                progressCell.classList.add('progress-cell');
+                progressCell.innerHTML = '<div class="progress"><div class="determinate" style="width: 0%"></div></div>';
+                
+                const progressBar = progressCell.querySelector('.determinate');
+                
+                uploadFile(file, backgroundColor, progressBar, statusCell, downloadCell, row, previewImg);
+            }
+        }
+
+        function uploadFile(file, backgroundColor, progressBar, statusCell, downloadCell, row, previewImg) {
+            const formData = new FormData();
+            formData.append('background_color', backgroundColor);
+            formData.append('files[]', file);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'image_conversion.php', true);
+
+            xhr.upload.onprogress = function (event) {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    progressBar.style.width = percentComplete + '%';
+                }
+            };
+
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.files && response.files.length > 0) {
+                        statusCell.textContent = 'Converted';
+                        progressBar.style.width = '100%';
+                        updatePreviewImage(previewImg, response.files[0].url);
+                        addDownloadLink(downloadCell, response.files[0]);
+                    } else {
+                        statusCell.textContent = 'Error';
+                        row.classList.add('error-row');
+                    }
+                } else {
+                    statusCell.textContent = 'Error';
+                    row.classList.add('error-row');
+                }
+            };
+
+            xhr.onerror = function () {
+                statusCell.textContent = 'Error';
+                row.classList.add('error-row');
+            };
+
+            xhr.send(formData);
+        }
+
+        function updatePreviewImage(previewImg, newImageUrl) {
+            previewImg.src = newImageUrl;
+        }
+
+        function addDownloadLink(cell, file) {
+            const link = document.createElement('a');
+            link.href = file.url;
+            link.className = 'download-link';
+            link.setAttribute('download', file.name);
+            link.appendChild(document.createTextNode(' Download'));
+            cell.appendChild(link);
+        }
+
+        function hexToRgb(hex) {
+            let r, g, b;
+            hex = hex.replace(/^#/, '');
+            if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            } else {
+                r = parseInt(hex[0] + hex[1], 16);
+                g = parseInt(hex[2] + hex[3], 16);
+                b = parseInt(hex[4] + hex[5], 16);
+            }
+            return r + ',' + g + ',' + b;
+        }
+    </script>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</body>
+</html>
